@@ -3,7 +3,7 @@ import json
 
 
 class ScamClassifierAgent:
-    def classify(self, message: str):
+    def classify(self, message: str,conversation_history:list):
 
         payload = {
             "model": "llama3.2:latest",
