@@ -17,6 +17,13 @@ class StrategyAgent:
                 "delay": False,
                 "goal": "probe"
             }
+        
+        if classification.get("is_scam"):
+            return {
+                "engage": True,
+                "delay": True,
+                "goal": "extract_intelligence"
+            }
 
         return {
             "engage": False,

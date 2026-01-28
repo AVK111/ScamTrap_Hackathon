@@ -4,88 +4,128 @@ from app.agents.strategy_agent import StrategyAgent
 from app.agents.conversation_agent import ConversationAgent
 from app.agents.extraction_agent import ExtractionAgent
 from app.agents.risk_agent import RiskAgent
+from app.memory.memory import ScamPatternMemory
+
+
+# 🚨шин HARD RULES (LLM CANNOT OVERRIDE)
+HIGH_RISK_KEYWORDS = [
+    "lottery",
+    "won",
+    "prize",
+    "reward",
+    "bank details",
+    "account blocked",
+    "otp",
+    "upi",
+    "pin",
+    "verify immediately",
+    "urgent"
+]
 
 
 def run_agents(
     session_id: str,
-    message,  # Message object
+    message: str,
     conversation_history: list
 ):
-    # 1️⃣ Scam classification
+    message_lower = message.lower()
+
+    # =========================
+    # 1️⃣ RULE-BASED DETECTION
+    # =========================
+    rule_hit = any(keyword in message_lower for keyword in HIGH_RISK_KEYWORDS)
+
+    # =========================
+    # 2️⃣ LLM CLASSIFICATION
+    # =========================
     classification = ScamClassifierAgent().classify(
         message,
         conversation_history
     )
 
-    # Decide scamDetected (GUVI logic)
-    scam_detected = (
-        classification.get("is_scam", False)
-        and classification.get("confidence", 0) >= 0.7
-    )
+    llm_says_scam = classification.get("is_scam", False)
 
-    # 2️⃣ Persona + strategy only if scam
-    persona = None
-    strategy = None
-    reply = None
+    # =========================
+    # 3️⃣ INTELLIGENCE EXTRACTION
+    # =========================
+    extracted = ExtractionAgent().extract(message,conversation_history)
 
-    if scam_detected:
-        persona = PersonaAgent().select_persona(classification)
-        strategy = StrategyAgent().decide_strategy(classification, persona)
+    if not extracted:
+        extracted = {
+            "bankAccounts": [],
+            "upiIds": [],
+            "phishingLinks": [],
+            "phoneNumbers": [],
+            "suspiciousKeywords": []
+        }
 
-        reply = ConversationAgent().generate_reply(
-            message=message,
-            conversation_history=conversation_history,
-            persona=persona,
-            strategy=strategy
+    keywords = extracted.get("suspiciousKeywords", [])
+
+    # =========================
+    # 4️⃣ MEMORY UPDATE
+    # =========================
+    if llm_says_scam:
+        ScamPatternMemory.update(
+            classification.get("scam_type", "Unknown"),
+            keywords
         )
-        if not reply:
-            reply = "Sorry, can you explain again?"
 
-    # 3️⃣ Intelligence extraction
-    extracted = ExtractionAgent().extract(
-        message,
-        conversation_history
-    ) or {
-        "bankAccounts": [],
-        "upiIds": [],
-        "phishingLinks": [],
-        "phoneNumbers": [],
-        "suspiciousKeywords": []
-    }
-    # Strong scam indicators (GUVI-aligned)
-    STRONG_SCAM_KEYWORDS = {
-        "otp", "verify", "blocked", "urgent", "account",
-        "upi", "bank", "immediately", "suspended"
-    }
+    known_pattern = ScamPatternMemory.is_known_pattern(keywords)
 
-    # Normalize keywords
-    found_keywords = set(
-        k.lower() for k in extracted.get("suspiciousKeywords", [])
+    # =========================
+    # 5️⃣ FINAL SCAM DECISION
+    # =========================
+    scam_detected = rule_hit or llm_says_scam or known_pattern
+
+    # =========================
+    # 6️⃣ PERSONA + STRATEGY
+    # =========================
+    persona = PersonaAgent().select_persona({
+        **classification,
+        "is_scam": scam_detected
+    })
+
+    strategy = StrategyAgent().decide_strategy(
+        classification,
+        persona
     )
 
-    # Final scam decision (HYBRID)
-    scam_detected = (
-        classification.get("is_scam", False)
-        or len(found_keywords.intersection(STRONG_SCAM_KEYWORDS)) >= 2
+    # =========================
+    # 7️⃣ SCAMMER REPLY (OLLAMA)
+    # =========================
+    reply = ConversationAgent().generate_reply(
+        message=message,
+        conversation_history=conversation_history,
+        persona=persona,
+        strategy=strategy
     )
 
+    # =========================
+    # 8️⃣ RISK CHECK
+    # =========================
+    risk_flag = RiskAgent().check(reply)
 
-    # 4️⃣ Engagement metrics
+    # =========================
+    # 9️⃣ METRICS
+    # =========================
     total_messages = len(conversation_history) + 1
 
-    # 5️⃣ Final GUVI-compliant response
+    # =========================
+    # ✅ FINAL RESPONSE
+    # =========================
     return {
-        "status": "success",
         "sessionId": session_id,
-        "reply":reply,
+        "reply": reply,
+        "classification": classification,
         "scamDetected": scam_detected,
         "engagementMetrics": {
             "totalMessagesExchanged": total_messages
         },
         "extractedIntelligence": extracted,
         "agentNotes": (
-            "Urgency and sensitive information request detected"
-            if scam_detected else
-            "No scam intent detected"
-        )
+            "High-risk scam indicators detected"
+            if scam_detected
+            else "No scam intent detected"
+        ),
+        "risk_flag": risk_flag
     }
