@@ -1,24 +1,34 @@
-class ScamPatternMemory:
-    _patterns = {}
+from typing import Dict, List
+
+
+class SessionMemory:
+    """
+    In-memory session store (safe for hackathon & evaluation)
+    """
+
+    _sessions: Dict[str, Dict] = {}
 
     @classmethod
-    def update(cls, scam_type: str, keywords: list):
-        if scam_type not in cls._patterns:
-            cls._patterns[scam_type] = {
-                "count": 0,
-                "keywords": set()
+    def get(cls, session_id: str) -> Dict:
+        if session_id not in cls._sessions:
+            cls._sessions[session_id] = {
+                "conversation": [],
+                "extractedIntelligence": {
+                    "bankAccounts": [],
+                    "upiIds": [],
+                    "phishingLinks": [],
+                    "phoneNumbers": [],
+                    "suspiciousKeywords": []
+                },
+                "scamDetected": False
             }
-
-        cls._patterns[scam_type]["count"] += 1
-        cls._patterns[scam_type]["keywords"].update(keywords)
+        return cls._sessions[session_id]
 
     @classmethod
-    def is_known_pattern(cls, keywords: list):
-        for data in cls._patterns.values():
-            if data["count"] >= 2 and any(k in data["keywords"] for k in keywords):
-                return True
-        return False
+    def save(cls, session_id: str, data: Dict):
+        cls._sessions[session_id] = data
 
     @classmethod
-    def dump(cls):
-        return cls._patterns
+    def clear(cls, session_id: str):
+        if session_id in cls._sessions:
+            del cls._sessions[session_id]

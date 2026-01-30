@@ -23,7 +23,7 @@ class ConversationAgent:
             extra_instruction = "Reply normally."
 
         prompt = f"""
-You are pretending to be a real human chatting with someone online.
+You are pretending to be a real human chatting with scammer online.
 
 Persona:
 - Role: {persona.get("role")}
