@@ -1,34 +1,19 @@
-from typing import Dict, List
-
-
 class SessionMemory:
-    """
-    In-memory session store (safe for hackathon & evaluation)
-    """
-
-    _sessions: Dict[str, Dict] = {}
+    _store = {}
 
     @classmethod
-    def get(cls, session_id: str) -> Dict:
-        if session_id not in cls._sessions:
-            cls._sessions[session_id] = {
-                "conversation": [],
-                "extractedIntelligence": {
-                    "bankAccounts": [],
-                    "upiIds": [],
-                    "phishingLinks": [],
-                    "phoneNumbers": [],
-                    "suspiciousKeywords": []
-                },
-                "scamDetected": False
-            }
-        return cls._sessions[session_id]
+    def get(cls, session_id: str):
+        """
+        Returns conversation history list for a session.
+        Creates a new one if session does not exist.
+        """
+        if session_id not in cls._store:
+            cls._store[session_id] = []
+        return cls._store[session_id]
 
     @classmethod
-    def save(cls, session_id: str, data: Dict):
-        cls._sessions[session_id] = data
-
-    @classmethod
-    def clear(cls, session_id: str):
-        if session_id in cls._sessions:
-            del cls._sessions[session_id]
+    def save(cls, session_id: str, conversation: list):
+        """
+        Saves updated conversation history.
+        """
+        cls._store[session_id] = conversation

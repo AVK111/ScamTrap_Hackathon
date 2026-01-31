@@ -14,103 +14,70 @@ HIGH_RISK_KEYWORDS = [
 ]
 
 
-def run_agents(
-    session_id: str,
-    message: str,
-    conversation_history: list
-):
-    # 🔁 Load session memory
+def run_agents(session_id: str, message: str, conversation_history: list):
+
+    # 1️⃣ LOAD SESSION (LIST)
     session = SessionMemory.get(session_id)
 
-    # 🧾 Append incoming scammer message
-    session["conversation"].append({
+    # 2️⃣ ADD INCOMING MESSAGE
+    session.append({
         "sender": "scammer",
         "text": message
     })
 
-    # =========================
-    # 1️⃣ SCAM CLASSIFICATION
-    # =========================
-    classification = ScamClassifierAgent().classify(
-        message,
-        session["conversation"]
-    )
+    # 3️⃣ CLASSIFY (NO MEMORY MUTATION)
+    classification = ScamClassifierAgent().classify(message, session)
+    scam_detected = classification.get("is_scam", False)
 
-    # Hard-rule reinforcement
-    message_lower = message.lower()
-    rule_hit = any(k in message_lower for k in HIGH_RISK_KEYWORDS)
-
-    scam_detected = classification.get("is_scam", False) or rule_hit
-    session["scamDetected"] = session["scamDetected"] or scam_detected
-
-    # =========================
-    # 2️⃣ PERSONA + STRATEGY
-    # =========================
+    # 4️⃣ PERSONA + STRATEGY
     persona = PersonaAgent().select_persona({
         **classification,
         "is_scam": scam_detected
     })
 
-    strategy = StrategyAgent().decide_strategy(
-        classification,
-        persona
-    )
+    strategy = StrategyAgent().decide_strategy(classification, persona)
 
-    # =========================
-    # 3️⃣ AGENTIC REPLY
-    # =========================
+    # 5️⃣ GENERATE REPLY
     reply = ConversationAgent().generate_reply(
         message=message,
-        conversation_history=session["conversation"],
+        conversation_history=session,
         persona=persona,
         strategy=strategy
     )
 
-    # Append agent reply to memory
-    session["conversation"].append({
+    # 6️⃣ SAVE AI REPLY TO SESSION
+    session.append({
         "sender": "user",
         "text": reply
     })
 
-    # =========================
-    # 4️⃣ INTELLIGENCE EXTRACTION
-    # =========================
-    extracted = ExtractionAgent().extract(
-        message,
-        session["conversation"]
-    )
-
-    for key in session["extractedIntelligence"]:
-        session["extractedIntelligence"][key].extend(
-            extracted.get(key, [])
-        )
-
-    # =========================
-    # 5️⃣ RISK CHECK
-    # =========================
-    risk_flag = RiskAgent().check(reply)
-
-    # =========================
-    # 6️⃣ SAVE SESSION
-    # =========================
     SessionMemory.save(session_id, session)
 
-    # =========================
-    # ✅ FINAL RESPONSE
-    # =========================
+    # 7️⃣ EXTRACTION
+    extracted = ExtractionAgent().extract(message, session)
+
+    if not extracted:
+        extracted = {
+            "bankAccounts": [],
+            "upiIds": [],
+            "phishingLinks": [],
+            "phoneNumbers": [],
+            "suspiciousKeywords": []
+        }
+
+    # 8️⃣ RETURN (DO NOT STORE FLAGS IN SESSION)
     return {
         "sessionId": session_id,
         "reply": reply,
         "classification": classification,
-        "scamDetected": session["scamDetected"],
+        "scamDetected": scam_detected,
         "engagementMetrics": {
-            "totalMessagesExchanged": len(session["conversation"])
+            "totalMessagesExchanged": len(session)
         },
-        "extractedIntelligence": session["extractedIntelligence"],
+        "extractedIntelligence": extracted,
         "agentNotes": (
             "High-risk scam indicators detected"
-            if session["scamDetected"]
-            else "No scam intent detected"
-        ),
-        "risk_flag": risk_flag
+            if scam_detected else
+            "No scam intent detected"
+        )
     }

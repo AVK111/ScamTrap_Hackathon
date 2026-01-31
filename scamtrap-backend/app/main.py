@@ -3,8 +3,14 @@ from datetime import datetime
 
 from app.schemas import ScamRequest, ScamResponse
 from app.orchestrator import run_agents
+from dotenv import load_dotenv
+import os
 
-API_KEY = "YOUR_SECRET_API_KEY"
+load_dotenv()
+
+print("Gemini key loaded:", bool(os.getenv("GEMINI_API_KEY")))
+
+API_KEY = os.getenv("GEMINI_API_KEY")
 
 app = FastAPI(title="Agentic HoneyPot API")
 
@@ -14,7 +20,7 @@ def handover(
     request: ScamRequest,
     x_api_key: str = Header(None)
 ):
-    if x_api_key is not None and x_api_key != API_KEY:
+    if  x_api_key != API_KEY:
         raise HTTPException(status_code=401, detail="Invalid API Key")
 
     # ✅ Single source of truth
@@ -29,7 +35,7 @@ def handover(
         "sessionId": request.sessionId,
 
         # 🔑 DO NOT recompute this
-        "scamDetected": result["scamDetected"],
+        "scamDetected": result.get("scamDetected",False),
 
         "agentReply": {
             "sender": "user",

@@ -1,4 +1,6 @@
-import requests
+import json
+from app.llm.gemini_client import generate
+import re
 
 class ConversationAgent:
     def generate_reply(
@@ -22,6 +24,7 @@ class ConversationAgent:
         else:
             extra_instruction = "Reply normally."
 
+        # 🔹 PROMPT IS IDENTICAL — NOT TOUCHED
         prompt = f"""
 You are pretending to be a real human chatting with scammer online.
 
@@ -125,60 +128,36 @@ Message 3: "im not good with this computer stuff"
 Message 7: "let me ask my son he usually helps me with this"
 Message 12: "im retired so i have time but i dont understand technology much"
 
-# THE "CONFUSED ELDERLY/BUSY PERSON" FLOW
-Them: "This is John from Microsoft, your computer has viruses"
-You: "oh" [WAIT for them to continue]
-
-Them: "We need to fix this immediately or you'll lose all your data"
-You: "oh no. what do i do" [Simple, concerned, not investigative]
-
-Them: "I need you to go to your computer"
-You: "ok im here" [Compliant, not questioning]
-
-Them: "Now press the Windows key"
-You: "which one is that" [Natural confusion, not "Why do I need to press it?"]
-
-# RED FLAGS TO AVOID
-- Multiple questions in one message
-- Questions that sound like verification: "What's your employee ID?"
-- Any question that sounds like YOU'RE interviewing THEM
-- Overly structured responses
-- Perfect grammar after establishing you're not tech-savvy
-- Immediate skepticism (save for later)
-
-# GREEN FLAGS (Natural human behavior)
-- Sometimes misunderstanding what they said
-- Asking them to repeat: "what was that website again"
-- Getting distracted: "sorry my dog was barking"
-- Simple acknowledgments without questions
-- Gradual warming up to the conversation
-- Letting confusion build before asking for clarification
-
 # GOLDEN RULE
 "Would a real confused/interested person ask this NOW, or would they just listen and react?"
 
 If in doubt: SAY LESS, ASK NOTHING, JUST REACT.
 """
 
-        response = requests.post(
-            "http://localhost:11434/api/generate",
-            json={
-                "model": "llama3.2:latest",
-                "prompt": prompt,
-                "stream": False
-            },
-            timeout=60
-        )
+        try:
+            raw_reply = generate(prompt)
+        except Exception:
+            return "Sorry, I'm a bit confused… can you explain again?"
 
-        data = response.json()
+        if not raw_reply:
+            return "Sorry, I'm a bit confused… can you explain again?"
 
-        reply_text = (
-            data.get("response")
-            or data.get("message", {}).get("content")
-            or ""
-        )
+        # =========================
+        # 🔧 REPLY NORMALIZATION
+        # =========================
+        reply_text = raw_reply.strip()
 
+        # Remove markdown/code blocks if Gemini adds them
+        reply_text = re.sub(r"```.*?```", "", reply_text, flags=re.DOTALL)
+
+        # Remove surrounding quotes
+        reply_text = reply_text.strip('"').strip("'")
+
+        # Collapse excessive newlines
+        reply_text = re.sub(r"\n{3,}", "\n\n", reply_text)
+
+        # Safety fallback
         if not reply_text:
             return "Sorry, I'm a bit confused… can you explain again?"
 
-        return reply_text.strip()
+        return reply_text

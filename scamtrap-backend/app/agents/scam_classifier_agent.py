@@ -1,5 +1,5 @@
-import requests
 import json
+from app.llm.gemini_client import generate
 
 
 class ScamClassifierAgent:
@@ -18,83 +18,64 @@ class ScamClassifierAgent:
             "processing fee",
             "advance fee",
             "wire transfer",
-            "urgent action required"
+            "urgent action required",
+            "otp",
+            "upi",
+            "account blocked"
         ]
 
         for trigger in hard_triggers:
             if trigger in text:
                 return {
                     "is_scam": True,
-                    "scam_type": "Lottery / Advance Fee Scam",
+                    "scam_type": "Lottery / Financial Scam",
                     "confidence": 0.99,
                     "reasons": [f"Detected keyword: {trigger}"]
                 }
 
-        # 🧠 FALLBACK → LLM analysis
+        # 🧠 FALLBACK → Gemini analysis
         return self._llm_classify(message)
 
     def _llm_classify(self, message: str):
-        payload = {
-            "model": "llama3.2:latest",
-            "messages": [
-                {
-                    "role": "system",
-                    "content": (
-                        "You are a cybercrime analyst.\n"
-                        "Rules:\n"
-                        "- Any lottery, prize, or reward message is ALWAYS a scam.\n"
-                        "- Any request for bank details, OTP, PIN, or payment is ALWAYS a scam.\n"
-                        "- Urgency + reward = scam.\n"
-                        "Return ONLY valid JSON. No explanations."
-                    )
-                },
-                {
-                    "role": "user",
-                    "content": (
-                        "Analyze the message and return JSON ONLY in this format:\n\n"
-                        "{\n"
-                        '  "is_scam": true,\n'
-                        '  "scam_type": "Lottery Scam",\n'
-                        '  "confidence": 0.95,\n'
-                        '  "reasons": ["reason1", "reason2"]\n'
-                        "}\n\n"
-                        f"Message:\n{message}"
-                    )
-                }
-            ],
-            "stream": False
-        }
+        prompt = f"""
+You are a cybercrime analyst.
+
+STRICT RULES:
+- Return ONLY valid JSON
+- NO markdown
+- NO explanations
+- Any lottery, prize, reward, OTP, UPI, bank request is ALWAYS a scam
+- Urgency + reward = scam
+
+JSON FORMAT (EXACT):
+{{
+  "is_scam": true,
+  "scam_type": "Phishing Scam",
+  "confidence": 0.9,
+  "reasons": ["reason1", "reason2"]
+}}
+
+Message:
+\"\"\"{message}\"\"\"
+"""
 
         try:
-            response = requests.post(
-                "http://localhost:11434/api/chat",
-                json=payload,
-                timeout=60
-            )
-            print("\n================ RAW OLLAMA RESPONSE ================")
-            print(response.text)
-            print("=====================================================\n")
+            raw = generate(prompt).strip()
+
+            if not raw.startswith("{"):
+                raise ValueError("Non-JSON output")
+
+            parsed = json.loads(raw)
+
+            return {
+                "is_scam": bool(parsed.get("is_scam", True)),
+                "scam_type": parsed.get("scam_type", "Unknown"),
+                "confidence": float(parsed.get("confidence", 0.5)),
+                "reasons": parsed.get("reasons", [])
+            }
+
         except Exception:
-            return self._fallback("LLM request failed")
-
-        data = response.json()
-
-        content = data.get("message", {}).get("content", "").strip()
-
-        if not content.startswith("{"):
-            return self._fallback("Model did not return JSON")
-
-        try:
-            parsed = json.loads(content)
-        except Exception:
-            return self._fallback("Invalid JSON from model")
-
-        return {
-            "is_scam": parsed.get("is_scam", True),
-            "scam_type": parsed.get("scam_type", "Unknown"),
-            "confidence": float(parsed.get("confidence", 0.5)),
-            "reasons": parsed.get("reasons", [])
-        }
+            return self._fallback("LLM classification failed")
 
     def _fallback(self, reason):
         return {
