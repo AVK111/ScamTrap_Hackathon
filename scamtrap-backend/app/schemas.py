@@ -15,7 +15,7 @@ class Message(BaseModel):
 class ScamRequest(BaseModel):
     sessionId: str
     message: Message
-    conversationHistory: List[Message] = []
+    conversationHistory: List[Message] = Field(default_factory=list)
     metadata: Optional[dict] = None
 
 
@@ -35,7 +35,7 @@ class AgentReply(BaseModel):
 
 
 class EngagementMetrics(BaseModel):
-    totalMessagesExchanged: int
+    totalMessagesExchanged: int = Field(...,example=4)
 
 
 class ExtractedIntelligence(BaseModel):

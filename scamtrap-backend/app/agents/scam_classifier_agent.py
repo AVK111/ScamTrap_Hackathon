@@ -28,7 +28,7 @@ class ScamClassifierAgent:
             if trigger in text:
                 return {
                     "is_scam": True,
-                    "scam_type": "Lottery / Financial Scam",
+                    "scam_type": "Phishing / Financial Scam",
                     "confidence": 0.99,
                     "reasons": [f"Detected keyword: {trigger}"]
                 }
@@ -79,8 +79,8 @@ Message:
 
     def _fallback(self, reason):
         return {
-            "is_scam": True,
+            "is_scam": False,
             "scam_type": "Unknown",
-            "confidence": 0.5,
-            "reasons": [reason]
+            "confidence": 0.6,
+            "reasons": ["No high risk keyword-detected"]
         }

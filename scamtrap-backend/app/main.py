@@ -44,8 +44,9 @@ def handover(
         },
 
         "engagementMetrics": {
-            "totalMessagesExchanged": len(request.conversationHistory) + 1
+            "totalMessagesExchanged": result["engagementMetrics"]["totalMessagesExchanged"]
         },
+
 
         "extractedIntelligence": result.get("extractedIntelligence", {
             "bankAccounts": [],
