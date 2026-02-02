@@ -2,7 +2,7 @@
 
 ## 🚀 Live API
 
-**Base URL:** `https://scamtrap-honeypot.onrender.com`
+**Base URL:** `https://scamtrap-hackathon.onrender.com`
 
 ## 📡 Endpoints
 
