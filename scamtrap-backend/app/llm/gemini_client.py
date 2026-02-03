@@ -1,22 +1,32 @@
 import os
 from dotenv import load_dotenv
+import logging
 import google.generativeai as genai
 
 # 🔑 LOAD .env (from project root)
 load_dotenv()
+logger = logging.getLogger(__name__)
 
 GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+model = None
 
-if not GEMINI_API_KEY:
-    raise RuntimeError("GEMINI_API_KEY not found in environment")
-
-genai.configure(api_key=GEMINI_API_KEY)
-
-# ✅ Correct model
-model = genai.GenerativeModel("models/gemini-flash-lite-latest")
+if GEMINI_API_KEY:
+    try:
+        genai.configure(api_key=GEMINI_API_KEY)
+        model = genai.GenerativeModel("models/gemini-flash-lite-latest")
+        logger.info("✅ Gemini configured")
+    except Exception as e:
+        logger.warning(f"⚠️ Failed to configure Gemini model: {e}")
+        model = None
+else:
+    logger.warning("⚠️ GEMINI_API_KEY not set; Gemini will be disabled")
 
 
 def generate(prompt: str) -> str | None:
+    if model is None:
+        logger.warning("⚠️ Gemini not configured; generate() returning None")
+        return None
+
     try:
         response = model.generate_content(prompt)
 
@@ -35,5 +45,5 @@ def generate(prompt: str) -> str | None:
         return None
 
     except Exception as e:
-        print("❌ Gemini error:", e)
+        logger.error("❌ Gemini error:", exc_info=e)
         return None
