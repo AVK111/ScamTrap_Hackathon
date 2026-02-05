@@ -1,15 +1,18 @@
 from typing import List, Optional
 from pydantic import BaseModel, Field
-
+from datetime import datetime
 
 # =========================
 # Incoming Request Schemas
 # =========================
 
 class Message(BaseModel):
-    sender: str = "scammer"
+    sender: str = Field(default="scammer", description="scammer or user")
     text: str = Field(..., description="Message content")
-    timestamp: str = None
+    timestamp: Optional[str] = Field(
+        default_factory=lambda: datetime.utcnow().isoformat() + "Z",
+        description="ISO-8601 timestamp"
+    )
 
 
 class ScamRequest(BaseModel):
