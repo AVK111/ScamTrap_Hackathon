@@ -15,6 +15,10 @@ API_KEY = os.getenv("GEMINI_API_KEY")
 
 app = FastAPI(title="Agentic HoneyPot API")
 
+@app.get("/handover")
+def health():
+    return {"status": "ready"}
+
 
 @app.post("/handover", response_model=ScamResponse)
 def handover(
