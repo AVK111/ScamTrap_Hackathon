@@ -1,4 +1,5 @@
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.responses import Response
 from datetime import datetime
 
 from app.schemas import ScamRequest, ScamResponse
@@ -62,3 +63,13 @@ def handover(
             else "No scam intent detected"
         )
     }
+
+
+@app.get("/")
+def root():
+    return {"status": "ok", "message": "Agentic HoneyPot API"}
+
+
+@app.get("/favicon.ico")
+def favicon():
+    return Response(status_code=204)
