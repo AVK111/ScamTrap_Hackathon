@@ -7,9 +7,9 @@ from pydantic import BaseModel, Field
 # =========================
 
 class Message(BaseModel):
-    sender: str = Field(..., description="scammer or user")
+    sender: str = "scammer"
     text: str = Field(..., description="Message content")
-    timestamp: str = Field(..., description="ISO-8601 timestamp")
+    timestamp: str = None
 
 
 class ScamRequest(BaseModel):
