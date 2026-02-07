@@ -2,7 +2,7 @@
 
 ## 🚀 Live API
 
-**Base URL:** `https://scamtrap-hackathon-1.onrender.com`
+**Base URL:** `https://scamtrap-hackathon-1-r1zi.onrender.com`
 
 ## 📡 Endpoints
 
